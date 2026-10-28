@@ -1,0 +1,624 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later · Copyright (C) 2026 Ryan Gilmore -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jupiter-08 Memory</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6d6a64; --line: #dedad2;
+  --init: #efece6; --initInk: #a29e96; --named: #ffffff;
+  --accent: #d2551f; --accentSoft: #fbe4d8; --sel: #2463c7; --selSoft: #dde8fa;
+  --warn: #8a5a00; --warnSoft: #fff3d6; --ok: #2b7a3d; --bad: #b3261e;
+  --ramp0: #f3f1ec; --ramp1: #24467a;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161614; --panel: #1f1e1c; --ink: #ecebe7; --muted: #9a968e; --line: #34322e;
+  --init: #252421; --initInk: #6d6a64; --named: #2a2926;
+  --accent: #f07a42; --accentSoft: #4a2a1b; --sel: #6ea0f0; --selSoft: #1e2d47;
+  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80;
+  --ramp0: #232220; --ramp1: #8fb4f0;
+}}
+:root[data-theme="dark"] {
+  --bg: #161614; --panel: #1f1e1c; --ink: #ecebe7; --muted: #9a968e; --line: #34322e;
+  --init: #252421; --initInk: #6d6a64; --named: #2a2926;
+  --accent: #f07a42; --accentSoft: #4a2a1b; --sel: #6ea0f0; --selSoft: #1e2d47;
+  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80;
+  --ramp0: #232220; --ramp1: #8fb4f0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+header { padding: 14px 20px 10px; display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: baseline; border-bottom: 1px solid var(--line); background: var(--panel); }
+h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.sub { color: var(--muted); font-size: 13px; }
+.banner { background: var(--warnSoft); color: var(--warn); padding: 8px 20px; font-size: 13px; border-bottom: 1px solid var(--line); }
+main { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(220px, 250px) minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+/* Detail stays in view while the grids scroll. */
+.side { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 40px; } .side { position: static; max-height: none; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.spacer { flex: 1; }
+button, select, .filebtn { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button:hover:not(:disabled), .filebtn:hover { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.filebtn input { display: none; }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted); }
+.drop.hot { border-color: var(--accent); color: var(--accent); }
+.err { color: var(--bad); font-size: 13px; }
+.okc { color: var(--ok); }
+
+.groups { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); margin-top: 10px; }
+.group h3 { margin: 0 0 4px; font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
+.group h3 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
+.grid { display: grid; grid-template-columns: 22px repeat(6, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: 1fr; gap: 2px; }
+.bank { font: 11px var(--mono); color: var(--muted); display: flex; align-items: center; cursor: pointer; }
+.bank:hover { color: var(--ink); }
+.cell { position: relative; min-width: 0; height: 42px; padding: 2px 4px; border-radius: 4px; background: var(--named); border: 1px solid var(--line); cursor: pointer; overflow: hidden; user-select: none; }
+.cell .loc { font: 9.5px var(--mono); color: var(--muted); display: block; line-height: 1.2; }
+.cell .nm { font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
+.cell.init { background: var(--init); border-color: transparent; }
+.cell.init .nm { color: var(--initInk); font-style: italic; }
+.cell.pending { background: var(--accentSoft); border-color: var(--accent); }
+.cell.pending::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.cell.renamed .nm { font-style: italic; }
+.cell.selected { outline: 2px solid var(--sel); outline-offset: -1px; background: var(--selSoft); }
+.cell.focus { box-shadow: 0 0 0 2px var(--ink) inset; }
+.cell.ghost { border: 1.5px dashed var(--sel); background: var(--selSoft); }
+.cell.ghost .nm { color: var(--sel); }
+.cell.nogo { border: 1.5px dashed var(--bad); }
+.cell.swap { outline: 2px dashed var(--sel); outline-offset: -1px; background: var(--selSoft); }
+.compact .cell { height: auto; min-height: 22px; padding: 3px 5px; display: flex; gap: 5px; align-items: baseline; }
+.compact .cell .loc { display: inline; flex: none; font-size: 10px; }
+.compact .cell .nm { flex: 1; min-width: 0; }
+/* Address beside the name only where a group is wide enough for both; otherwise on its own line above. */
+.group { container-type: inline-size; }
+@container (max-width: 639px) { .compact .cell { flex-direction: column; gap: 0; align-items: stretch; } .compact .cell .nm { flex: none; -webkit-line-clamp: 3; } }
+.colh { font: 10px var(--mono); color: var(--muted); padding-left: 5px; }
+
+.mapbar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); margin-top: 8px; }
+.mapbar div { height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+.slotstrip { display: grid; grid-template-columns: repeat(64, 1fr); gap: 1px; margin-top: 8px; }
+.slotstrip div { height: 9px; border-radius: 1px; }
+
+.ops { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; }
+.ops li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.ops li:last-child { border-bottom: 0; }
+.ops .loc { font-family: var(--mono); font-size: 12px; min-width: 42px; }
+.ops .x { margin-left: auto; padding: 0 7px; }
+.mono { font-family: var(--mono); }
+.detail input[type=text] { flex: 1; min-width: 0; width: auto; }
+.detail details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.detail summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.detail canvas { width: 100%; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px; display: block; margin-top: 8px; cursor: crosshair; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; margin-top: 6px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+input[type=text] { font: 13px var(--mono); padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); width: 13em; }
+.hint { font-size: 12px; color: var(--muted); }
+.report { margin-top: 10px; font-size: 13px; }
+.report table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+.report td, .report th { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.stack > * + * { margin-top: 16px; }
+.links { margin-top: 10px; background: var(--warnSoft); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.links ul { margin: 6px 0 0; padding-left: 18px; }
+.links li { margin: 3px 0; }
+.links button { padding: 1px 7px; font-size: 12px; margin-left: 6px; }
+.check { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jupiter-08 Memory</h1>
+  <span class="sub">See what is stored where in a backup, bring in patches and patterns from other backups or patch sets, and build a new backup with only those changes.</span>
+  <span class="spacer"></span>
+  <span class="sub">Files stay in this browser; nothing is uploaded.</span>
+</header>
+<div class="banner" id="banner">Restoring merged backups is verified on hardware, for one patch and for a whole group. Patterns play patches by slot number: the Changes list warns when a pattern would play a different patch than it was made with. Keep your original backup file safe.</div>
+
+<main>
+  <div class="side stack">
+    <section class="card detail" id="detail"><h2>Detail</h2><div id="detailBody" class="hint">Click any slot to inspect it.</div></section>
+    <section class="card" id="changes">
+      <div class="row"><h2 style="margin:0">Changes</h2><span class="sub" id="opCount"></span><span class="spacer"></span><button id="clearOps" disabled>Clear all</button></div>
+      <ul class="ops" id="opList"></ul>
+      <div id="links"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="buildBtn" disabled>Build new backup</button>
+        <span class="hint">Writes a new file; your loaded backup is never modified.</span>
+      </div>
+      <div class="report" id="report"></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card" id="mine">
+      <div class="row">
+        <h2 style="margin:0">Your memory</h2>
+        <span class="sub" id="mineLabel"></span>
+        <span class="spacer"></span>
+        <div class="tabs row" role="group" aria-label="Show">
+          <button data-tab="patch" aria-pressed="true">Patches</button>
+          <button data-tab="pattern" aria-pressed="false">Patterns</button>
+        </div>
+      </div>
+      <div id="mineBody"></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card" id="src">
+      <div class="row">
+        <h2 style="margin:0">Bring in from</h2>
+        <span class="spacer"></span>
+        <label class="filebtn">Add backup or patch set…<input type="file" id="srcFile" accept=".svd,.j08set" multiple></label>
+      </div>
+      <div id="srcBody"></div>
+    </section>
+  </div>
+</main>
+
+<script src="svd.js"></script>
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const S = {
+  base: null, tab: "patch",
+  sources: [], srcIdx: -1,     // {label, file|set, problems[], self}
+  sel: [],                     // selected source slots (indices into source records of current tab)
+  anchor: null,                // for shift-click
+  spacing: "keep",             // "keep" | "pack"
+  mode: "copy",                // "copy" | "move" — move empties the origin; only for your own backup as source
+  dragMine: null,              // slot being dragged within Your memory, for swap
+  bytesOpen: false,            // byte-map drawer in Detail
+  withEmpty: false,            // row/group/range selection takes empty slots too, clearing their destinations
+  ops: [],                     // {op:"place"|"rename", kind, slot, bytes?, name?, from?}
+  hover: null,                 // dest slot under pointer during placement
+  focus: null,                 // {side:"mine"|"src", slot}
+  built: null,
+};
+
+/* ---------- derived state ---------- */
+function eff(kind, slot) {
+  const rec = S.base[kind][slot];
+  let name = rec.name, bytes = rec.bytes, placed = null, renamed = false;
+  for (const o of S.ops) {
+    if (o.kind !== kind || o.slot !== slot) continue;
+    if (o.op === "place") { bytes = o.bytes; name = o.from.name; placed = o; renamed = false; }
+    else { name = o.name; renamed = true; }
+  }
+  return { rec, name, bytes, placed, renamed, pending: !!placed || renamed, isInit: name === SVD.INIT_NAMES[kind] };
+}
+const takes = (r) => S.withEmpty || !r.isInit;
+const srcRecords = () => { const s = S.sources[S.srcIdx]; return s ? s.data[S.tab] : []; };
+function placement(destStart) {
+  const recs = srcRecords(), k = SVD.KINDS[S.tab];
+  if (!S.sel.length) return null;
+  const sel = [...S.sel].sort((a, b) => a - b);
+  const targets = sel.map((s, i) => S.spacing === "keep" && !S.sources[S.srcIdx].data.set ? destStart + (s - sel[0]) : destStart + i);
+  const ok = targets.every((t) => t >= 0 && t < k.addressable);
+  return { pairs: sel.map((s, i) => ({ rec: recs.find((r) => r.slot === s), dest: targets[i] })), ok };
+}
+
+/* ---------- loading ---------- */
+async function readFile(f) { return new Uint8Array(await f.arrayBuffer()); }
+async function loadBase(bytes, label) {
+  try {
+    const f = SVD.parse(bytes, label);
+    S.base = f; S.ops = []; S.built = null; S.focus = null;
+    S.sources = S.sources.filter((s) => !s.self);
+    S.sources.unshift({ label: "Your backup (as loaded)", data: f, problems: [], self: true });
+    for (const s of S.sources) if (!s.self) s.problems = problemsFor(s.data);
+    S.srcIdx = 0; S.sel = [];
+    render();
+  } catch (e) { showMineError(e.message); }
+}
+function problemsFor(d) {
+  if (!S.base) return [];
+  if (d.set) return [...new Set([...d.patch, ...d.pattern].map((r) => SVD.recordProblem(S.base, r)).filter(Boolean))];
+  return SVD.compatible(S.base, d);
+}
+async function addSource(bytes, label) {
+  try {
+    const data = SVD.isSet(bytes) ? SVD.parseSet(bytes, label) : SVD.parse(bytes, label);
+    S.sources.push({ label, data, problems: problemsFor(data) });
+    S.srcIdx = S.sources.length - 1; S.sel = [];
+    if (data.set && !data[S.tab].length) S.tab = S.tab === "patch" ? "pattern" : "patch";
+    render();
+  } catch (e) { alertSrc(e.message); }
+}
+function showMineError(msg) { $("#mineBody").prepend(el("p", { class: "err" }, msg)); }
+function alertSrc(msg) { $("#srcBody").prepend(el("p", { class: "err" }, msg)); }
+
+/* ---------- rendering ---------- */
+function render() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === S.tab));
+  renderMine(); renderSrc(); renderOps(); renderDetail();
+}
+
+function renderMine() {
+  const body = $("#mineBody"); body.replaceChildren();
+  if (!S.base) {
+    $("#mineLabel").textContent = "";
+    const inp = el("input", { type: "file", accept: ".svd", onchange: async (e) => e.target.files[0] && loadBase(await readFile(e.target.files[0]), e.target.files[0].name) });
+    body.append(el("div", { class: "drop", id: "mineDrop" },
+      el("p", {}, "Drop your ", el("b", {}, "JUPITER08Backup.svd"), " here, or ", el("label", { class: "filebtn" }, "choose it…", inp)),
+      el("p", { class: "hint" }, "Get it by holding [MENU] while switching the Jupiter-08 on, then copying BACKUP/JUPITER08Backup.svd off the JUPITER-08 drive.")));
+    wireDrop($("#mineDrop"), (f) => readFile(f).then((b) => loadBase(b, f.name)));
+    return;
+  }
+  $("#mineLabel").textContent = S.base.label;
+  body.append(memoryMap());
+  const k = SVD.KINDS[S.tab], place = S.hover != null ? placement(S.hover) : null;
+  const ghost = new Map(); if (place) for (const p of place.pairs) ghost.set(p.dest, p.rec);
+  const wrap = el("div", { class: "groups compact" });
+  for (let g = 0; g < k.groups.length; g++) {
+    const grid = el("div", { class: "grid" }, ...colHeads(S.tab));
+    let named = 0;
+    for (let bank = 0; bank < 8; bank++) {
+      grid.append(el("div", { class: "bank", title: "Inspect this row" }, `${k.groups[g]}${bank + 1}`));
+      for (let n = 0; n < 6; n++) {
+        const slot = g * 48 + bank * 6 + n, e = eff(S.tab, slot), gh = ghost.get(slot);
+        if (!e.isInit) named++;
+        const cls = ["cell", e.isInit && "init", e.pending && "pending", e.renamed && "renamed",
+          S.focus && S.focus.side === "mine" && S.focus.slot === slot && "focus",
+          gh && (place.ok ? "ghost" : "nogo")].filter(Boolean).join(" ");
+        const cell = el("div", { class: cls, title: `${SVD.location(S.tab, slot)} — ${e.name}${e.placed ? `\nincoming from ${e.placed.from.label} ${e.placed.from.loc || ""}` : ""}`,
+          onmouseenter: () => { if (S.sel.length && S.hover !== slot) { S.hover = slot; renderMine(); } },
+          onclick: () => clickMine(slot),
+          draggable: "true",
+          // Drag within Your memory swaps. No re-render until drop: rebuilding the dragged cell would end the drag.
+          ondragstart: (ev) => { S.dragMine = slot; ev.dataTransfer.effectAllowed = "move"; ev.dataTransfer.setData("text/plain", "jp08-swap"); },
+          ondragend: () => { S.dragMine = null; document.querySelectorAll("#mineBody .swap").forEach((c) => c.classList.remove("swap")); },
+          ondragleave: (ev) => ev.currentTarget.classList.remove("swap"),
+          ondragover: (ev) => {
+            if (S.dragMine != null) { ev.preventDefault(); if (S.dragMine !== slot) ev.currentTarget.classList.add("swap"); }
+            else if (S.sel.length) { ev.preventDefault(); if (S.hover !== slot) { S.hover = slot; renderMine(); } }
+          },
+          ondrop: (ev) => { ev.preventDefault(); if (S.dragMine != null) { const a = S.dragMine; S.dragMine = null; swapMine(a, slot); } else clickMine(slot); } },
+          el("span", { class: "loc" }, SVD.location(S.tab, slot)), el("span", { class: "nm" }, gh ? (gh.isInit ? "empty" : gh.name) : e.isInit ? "empty" : e.name));
+        grid.append(cell);
+      }
+    }
+    wrap.append(el("div", { class: "group" }, el("h3", {}, `${S.tab === "patch" ? "Group" : "Pattern group"} ${k.groups[g]}`, el("span", { class: "count" }, `${named} of 48 named`)), grid));
+  }
+  wrap.addEventListener("mouseleave", () => { if (S.hover != null) { S.hover = null; renderMine(); } });
+  body.append(wrap);
+  fitNames(wrap);
+  const hidden = k.count - k.addressable;
+  body.append(el("p", { class: "hint" }, `${hidden} further ${S.tab} slots exist in the file but are not reachable from the panel; they are shown in the strip above and never written.`));
+  body.append(el("p", { class: "hint" }, `Drag one slot onto another to swap them.`));
+  if (S.sel.length) body.append(el("p", { class: "hint" }, `Placing ${S.sel.length} ${S.tab}${S.sel.length > 1 ? "s" : ""}: point at a destination to preview, click to place. Esc cancels.`));
+}
+
+/* Column numbers over a 6-wide grid: 1–6 for patches (A11…A16), A–F for patterns (PA1A…PA1F). */
+const colHeads = (kind) => [el("div"), ...(kind === "patch" ? "123456" : "ABCDEF").split("").map((c) => el("div", { class: "colh" }, c))];
+
+/* Names wrap only at spaces; a word wider than its cell gets a smaller font until it fits. */
+function fitNames(root) {
+  for (const nm of root.querySelectorAll(".cell .nm")) {
+    let px = 10.5;
+    while (nm.scrollWidth > nm.clientWidth + 0.5 && px > 7.5) nm.style.fontSize = `${(px -= 0.5)}px`;
+  }
+}
+
+function memoryMap() {
+  const b = S.base, total = b.bytes.length, box = el("div", {});
+  const secs = [["PRFa", "Patterns", "#8c7ae6"], ["PATa", "Patches", "#d2551f"], ["SYSa", "System", "#3c9d6b"], ["DIFa", "Version", "#999"]];
+  const bar = el("div", { class: "mapbar", title: "Whole file, to scale" });
+  for (const [t, , c] of secs) bar.append(el("div", { style: `width:${(b.sections[t].size / total) * 100}%;background:${c};min-width:3px`, title: `${t} @0x${b.sections[t].offset.toString(16)}, ${b.sections[t].size} bytes` }));
+  const strip = el("div", { class: "slotstrip", title: "Every slot in the file, in file order" });
+  const k = SVD.KINDS[S.tab];
+  for (let s = 0; s < k.count; s++) {
+    const e = eff(S.tab, s), hidden = s >= k.addressable;
+    const c = e.pending ? css("--accent") : e.isInit ? css("--init") : css("--ramp1");
+    strip.append(el("div", { style: `background:${c};opacity:${hidden ? .35 : 1}`, title: `${SVD.location(S.tab, s) || `slot ${s} (not addressable)`}: ${e.name}` }));
+  }
+  const named = b[S.tab].filter((r) => !r.isInit).length;
+  box.append(el("div", { class: "row hint" }, `File: ${(total / 1024).toFixed(0)} KiB in 4 sections · ${named} named ${S.tab}s · ${S.ops.length} pending change${S.ops.length === 1 ? "" : "s"}`), bar,
+    el("div", { class: "legend" }, ...secs.map(([, n, c]) => el("span", {}, el("i", { style: `background:${c}` }), n))), strip,
+    el("div", { class: "legend" }, el("span", {}, el("i", { style: `background:${css("--ramp1")}` }), "named"), el("span", {}, el("i", { style: `background:${css("--init")}` }), S.base ? `empty (${SVD.INIT_NAMES[S.tab]})` : ""), el("span", {}, el("i", { style: `background:${css("--accent")}` }), "pending change")));
+  return box;
+}
+
+function renderSrc() {
+  const body = $("#srcBody"); body.replaceChildren();
+  if (!S.base) { body.append(el("p", { class: "hint" }, "Load your backup first.")); return; }
+  const pick = el("select", { onchange: (e) => { S.srcIdx = +e.target.value; S.sel = []; render(); } },
+    ...S.sources.map((s, i) => el("option", { value: i, selected: i === S.srcIdx }, s.label + (s.problems.length ? " — incompatible" : ""))));
+  body.append(el("div", { class: "row", style: "margin-top:8px" }, pick));
+  const src = S.sources[S.srcIdx];
+  if (src.problems.length) { body.append(el("p", { class: "err" }, "Can't take records from this file: " + src.problems.join("; ") + ".")); return; }
+  const recs = src.data[S.tab], k = SVD.KINDS[S.tab];
+  if (!recs.length) { body.append(el("p", { class: "hint" }, `This file has no ${S.tab}s.`)); return; }
+  const tools = el("div", { class: "row", style: "margin-top:8px" },
+    el("button", { onclick: () => { S.sel = recs.filter((r) => !r.isInit && (src.data.set || r.slot < k.addressable)).map((r) => r.slot); render(); } }, "Select all named"),
+    el("button", { onclick: () => { S.sel = []; S.hover = null; render(); }, disabled: !S.sel.length }, "Clear selection"),
+    src.data.set ? null : el("select", { onchange: (e) => { S.spacing = e.target.value; render(); }, title: "How a selection lands" },
+      el("option", { value: "keep", selected: S.spacing === "keep" }, "Keep layout"), el("option", { value: "pack", selected: S.spacing === "pack" }, "Pack together")),
+    src.self ? el("select", { onchange: (e) => { S.mode = e.target.value; render(); }, title: "Move also empties the slot each patch came from" },
+      el("option", { value: "copy", selected: S.mode === "copy" }, "Copy"), el("option", { value: "move", selected: S.mode === "move" }, "Move")) : null,
+    src.data.set ? null : el("label", { class: "check", title: "Row, group and ⇧-range selections include empty slots, so placing them clears what is there" },
+      el("input", { type: "checkbox", checked: S.withEmpty, onchange: (e) => { S.withEmpty = e.target.checked; S.sel = []; render(); } }), "Include empty slots"),
+    el("span", { class: "spacer" }),
+    el("button", { disabled: !S.sel.length, onclick: exportSet, title: "Save the selection as a .j08set to share" }, "Export selection…"));
+  body.append(tools, el("p", { class: "hint" }, src.data.set ? "Click to select, ⇧-click for a range. Selected patches are placed one after another." : "Click to select, ⇧-click for a range, ⌘/Ctrl-click to add. Click a row label to take the whole row." +
+    (src.self ? " This side always shows your backup as loaded." + (S.mode === "move" ? " Move empties each slot a patch came from." : " Copy leaves the original where it is.") : "") + (S.withEmpty ? " Empty slots are included: placing them clears the destination." : " Empty slots are skipped, so whatever is under them stays.")));
+  if (src.data.set) {
+    const list = el("div", { class: "groups compact" }), grid = el("div", { class: "grid", style: "grid-template-columns:repeat(4,minmax(0,1fr))" });
+    for (const r of recs) grid.append(srcCell(r, recs));
+    list.append(el("div", { class: "group" }, el("h3", {}, `${recs.length} ${S.tab}${recs.length > 1 ? "s" : ""} in this set`), grid));
+    body.append(list); fitNames(list); return;
+  }
+  const wrap = el("div", { class: "groups compact" });
+  for (let g = 0; g < k.groups.length; g++) {
+    const grid = el("div", { class: "grid" }, ...colHeads(S.tab));
+    for (let bank = 0; bank < 8; bank++) {
+      const row = recs.slice(g * 48 + bank * 6, g * 48 + bank * 6 + 6);
+      grid.append(el("div", { class: "bank", title: "Select this row", onclick: () => { S.sel = row.filter(takes).map((r) => r.slot); render(); } }, `${k.groups[g]}${bank + 1}`));
+      for (const r of row) grid.append(srcCell(r, recs));
+    }
+    wrap.append(el("div", { class: "group" }, el("h3", {}, k.groups[g], el("button", { style: "margin-left:auto;padding:0 6px;font-size:11px", onclick: () => { S.sel = recs.slice(g * 48, g * 48 + 48).filter(takes).map((r) => r.slot); render(); } }, "select group")), grid));
+  }
+  body.append(wrap);
+  fitNames(wrap);
+}
+
+function srcCell(r, recs) {
+  const selected = S.sel.includes(r.slot);
+  return el("div", { class: ["cell", r.isInit && "init", selected && "selected", S.focus && S.focus.side === "src" && S.focus.slot === r.slot && "focus"].filter(Boolean).join(" "),
+    title: `${r.loc || `slot ${r.slot}`} — ${r.name}`, draggable: "true",
+    ondragstart: (ev) => { if (!selected) { S.sel = [r.slot]; render(); } ev.dataTransfer.setData("text/plain", "jp08"); },
+    onclick: (ev) => {
+      if (ev.shiftKey && S.anchor != null) {
+        const ia = recs.findIndex((x) => x.slot === S.anchor), ib = recs.findIndex((x) => x.slot === r.slot);
+        S.sel = recs.slice(Math.min(ia, ib), Math.max(ia, ib) + 1).filter(takes).map((x) => x.slot);
+      } else if (ev.metaKey || ev.ctrlKey) S.sel = selected ? S.sel.filter((s) => s !== r.slot) : [...S.sel, r.slot];
+      else S.sel = selected && S.sel.length === 1 ? [] : [r.slot];
+      S.anchor = r.slot; S.focus = { side: "src", slot: r.slot }; render();
+    } },
+    el("span", { class: "loc" }, r.loc || ""), el("span", { class: "nm" }, r.isInit ? "empty" : r.name));
+}
+
+function clickMine(slot) {
+  if (S.sel.length) {
+    const p = placement(slot);
+    if (!p.ok) return;
+    const src = S.sources[S.srcIdx];
+    for (const { rec, dest } of p.pairs) {
+      S.ops = S.ops.filter((o) => !(o.kind === S.tab && o.slot === dest));
+      if (src.self && rec.slot === dest) continue; // copying a slot onto itself: just clears pending
+      S.ops.push({ op: "place", kind: S.tab, slot: dest, bytes: rec.bytes, origin: src.data, from: { label: src.self ? "your backup" : src.label, loc: rec.loc || `slot ${rec.slot}`, name: rec.name } });
+    }
+    const blank = S.base[S.tab].find((r) => r.isInit);
+    if (src.self && S.mode === "move" && blank) {
+      const dests = new Set(p.pairs.map((x) => x.dest));
+      for (const { rec, dest } of p.pairs) {
+        // Leave an origin alone if it is also a destination, already empty, or holds a pending placement.
+        if (dests.has(rec.slot) || rec.isInit || S.ops.some((o) => o.op === "place" && o.kind === S.tab && o.slot === rec.slot)) continue;
+        S.ops = S.ops.filter((o) => !(o.kind === S.tab && o.slot === rec.slot));
+        S.ops.push({ op: "place", kind: S.tab, slot: rec.slot, bytes: blank.bytes, origin: S.base, from: { label: "your backup", loc: blank.loc || `slot ${blank.slot}`, name: blank.name, movedTo: SVD.location(S.tab, dest) } });
+      }
+    }
+    prune();
+    S.sel = []; S.hover = null; S.built = null; S.focus = { side: "mine", slot };
+  } else S.focus = { side: "mine", slot };
+  render();
+}
+
+/** Drop placements that leave a slot exactly as loaded (a swap undone, a move back). */
+function prune() {
+  S.ops = S.ops.filter((o) => {
+    if (o.op !== "place") return true;
+    const b = S.base[o.kind][o.slot].bytes;
+    return o.bytes.length !== b.length || o.bytes.some((v, i) => v !== b[i]);
+  });
+}
+
+/** Swap two slots of Your memory as currently shown, pending changes and renames included. */
+function swapMine(a, b) {
+  if (a === b) return;
+  const kind = S.tab, ea = eff(kind, a), eb = eff(kind, b);
+  const put = (slot, e, fromSlot) => [
+    { op: "place", kind, slot, bytes: e.bytes, origin: e.placed ? e.placed.origin : S.base,
+      from: { label: "swapped from", loc: SVD.location(kind, fromSlot), name: e.placed ? e.placed.from.name : e.rec.name } },
+    ...(e.renamed ? [{ op: "rename", kind, slot, name: e.name }] : [])];
+  S.ops = S.ops.filter((o) => !(o.kind === kind && (o.slot === a || o.slot === b)));
+  S.ops.push(...put(b, ea, a), ...put(a, eb, b));
+  prune();
+  S.built = null; S.focus = { side: "mine", slot: b }; render();
+}
+
+function renderOps() {
+  const list = $("#opList"); list.replaceChildren();
+  $("#opCount").textContent = S.ops.length ? `${S.ops.length}` : "";
+  $("#clearOps").disabled = !S.ops.length; $("#buildBtn").disabled = !S.ops.length;
+  if (!S.ops.length) list.append(el("li", { class: "hint" }, S.base ? "No changes yet. Select patches on the right, then click where they should go." : ""));
+  S.ops.forEach((o, i) => {
+    const before = S.base[o.kind][o.slot].name;
+    list.append(el("li", {},
+      el("span", { class: "loc" }, SVD.location(o.kind, o.slot)),
+      o.op === "place" && o.from.movedTo ? el("span", {}, el("b", {}, "clear"), ` — ${before} moved to ${o.from.movedTo}`)
+      : o.op === "place" && o.from.name === SVD.INIT_NAMES[o.kind] ? el("span", {}, el("b", {}, "clear"), el("span", { class: "hint" }, `  (empties ${before})`))
+      : o.op === "place" ? el("span", {}, el("b", {}, o.from.name), ` ← ${o.from.label} ${o.from.loc}`, el("span", { class: "hint" }, `  (replaces ${before})`))
+                       : el("span", {}, "rename to ", el("b", {}, o.name)),
+      el("button", { class: "x", title: "Undo this change", onclick: () => { S.ops.splice(i, 1); S.built = null; render(); } }, "×")));
+  });
+  renderLinks();
+  if (!S.built) $("#report").replaceChildren();
+}
+
+/* Patterns play patches by slot. Flag every named pattern that would play something else than in the file it came from. */
+const issueText = (i) => i.status === "invalid" ? `${i.part.toUpperCase()} reference is not a patch slot`
+  : i.status === "unknown" ? `${i.part.toUpperCase()} plays ${i.refLoc} — the patch set doesn't include it; here that is ${i.actual}`
+  : `${i.part.toUpperCase()} plays ${i.refLoc}: made with ${i.expected.name}, would get ${i.actual}`;
+const canBring = (i) => i.status === "changed" && i.origin !== S.base;
+function bringAlong(...issues) {
+  for (const i of issues) {
+    S.ops = S.ops.filter((o) => !(o.kind === "patch" && o.slot === i.ref));
+    S.ops.push({ op: "place", kind: "patch", slot: i.ref, bytes: i.expected.bytes, origin: i.origin,
+      from: { label: i.origin.label || "source", loc: i.refLoc, name: i.expected.name } });
+  }
+  S.built = null; render();
+}
+function renderLinks() {
+  const box = $("#links"); box.replaceChildren();
+  if (!S.base || !S.ops.length) return;
+  const issues = SVD.linkIssues(S.base, S.ops);
+  if (!issues.length) return;
+  const bringable = [...new Map(issues.filter(canBring).map((i) => [i.ref, i])).values()];
+  const patterns = new Set(issues.map((i) => i.pattern)).size;
+  box.append(el("div", { class: "links" },
+    el("div", { class: "row" }, el("b", {}, `${patterns} pattern${patterns > 1 ? "s" : ""} would play different patches`), el("span", { class: "spacer" }),
+      bringable.length ? el("button", { onclick: () => bringAlong(...bringable),
+        title: "Copy each referenced patch into the same slot here, so incoming patterns play what they were made with" }, `Bring along ${bringable.length} patch${bringable.length > 1 ? "es" : ""}`) : null),
+    el("ul", {}, ...issues.map((i) => el("li", {}, el("span", { class: "mono" }, i.loc), ` ${i.name} — ${issueText(i)}`,
+      canBring(i) ? el("button", { onclick: () => bringAlong(i), title: `Copy ${i.expected.name} from ${i.origin.label} into ${i.refLoc}` }, "bring along") : null))),
+    el("p", { class: "hint", style: "margin:6px 0 0" }, "Bringing a patch along copies it into the same slot number, which replaces what is there and may affect your own patterns — they are rechecked. You can also build anyway.")));
+}
+
+/* ---------- detail + byte map ---------- */
+function renderDetail() {
+  const body = $("#detailBody"); body.replaceChildren();
+  if (!S.base || !S.focus) { body.append("Click any slot to inspect it."); return; }
+  const kind = S.tab, isMine = S.focus.side === "mine";
+  let rec, bytes, name, extra = [];
+  if (isMine) {
+    const e = eff(kind, S.focus.slot); rec = e.rec; bytes = e.bytes; name = e.name;
+    if (e.placed) extra.push(["Incoming", `${e.placed.from.name} from ${e.placed.from.label} ${e.placed.from.loc}`], ["Replaces", rec.name]);
+  } else {
+    rec = srcRecords().find((r) => r.slot === S.focus.slot); if (!rec) return; bytes = rec.bytes; name = rec.name;
+    extra.push(["From", S.sources[S.srcIdx].label]);
+  }
+  const loc = isMine ? SVD.location(kind, rec.slot) : rec.loc;
+  const kv = el("dl", { class: "kv" },
+    ...[["Slot", `${loc || "—"} (record ${rec.slot})`], ["Name", name], ...extra,
+        ["File offset", isMine ? `0x${rec.start.toString(16).toUpperCase()}–0x${(rec.start + bytes.length).toString(16).toUpperCase()}` : "—"],
+        kind === "pattern" ? ["Tempo", `${((bytes[18] | (bytes[19] << 8)) / 100).toFixed(2)} BPM (observed field)`] : null,
+        kind === "pattern" ? ["Plays", (({ lower, upper }) => `LOWER ${SVD.location("patch", lower) ?? "?"}, UPPER ${SVD.location("patch", upper) ?? "?"}`)(SVD.patternRefs(bytes))] : null]
+      .filter(Boolean).flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+  body.append(el("div", { class: "row" }, el("b", { style: "font-size:15px" }, name), el("span", { class: "spacer" }),
+    isMine && S.ops.some((o) => o.kind === kind && o.slot === rec.slot) ? el("button", { onclick: () => { S.ops = S.ops.filter((o) => !(o.kind === kind && o.slot === rec.slot)); render(); } }, "Revert this slot") : null), kv);
+  if (isMine) {
+    const input = el("input", { type: "text", value: name, maxlength: 16, spellcheck: "false" });
+    const msg = el("span", { class: "hint" });
+    const apply = () => {
+      const v = input.value.replace(/ +$/, ""), p = SVD.nameProblem(v);
+      if (p) { msg.textContent = p; msg.className = "err"; return; }
+      if (v === name) return;
+      S.ops.push({ op: "rename", kind, slot: rec.slot, name: v }); S.built = null; render();
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") apply(); });
+    body.append(el("div", { class: "hint", style: "margin-top:10px" }, "Rename"), el("div", { class: "row", style: "margin-top:3px;flex-wrap:nowrap" }, input, el("button", { onclick: apply }, "Apply")), msg);
+  }
+  // comparison reference
+  const initRec = S.base[kind].find((r) => r.isInit);
+  const refOld = isMine && eff(kind, rec.slot).placed ? rec.bytes : null;
+  const ref = refOld || (initRec && initRec.bytes);
+  let diff = 0; for (let i = 0; i < bytes.length; i++) if (ref && bytes[i] !== ref[i]) diff++;
+  const drawer = el("details", { open: S.bytesOpen, ontoggle: (e) => { S.bytesOpen = e.target.open; } },
+    el("summary", {}, "Byte map"),
+    el("p", { class: "hint", style: "margin:6px 0 0" },
+      `Every byte of the record, one cell each, darker = larger value. ${diff} of ${bytes.length} bytes differ from ${refOld ? "the patch it replaces" : `an empty slot (${SVD.INIT_NAMES[kind]})`}; those cells are outlined. ` +
+      "It counts bytes, not settings: the name is 16 of them, and one control can span two."));
+  body.append(drawer);
+  const cols = kind === "patch" ? 32 : 64;
+  const canvas = byteMap(bytes, ref, cols);
+  const read = el("div", { class: "hint mono", style: "min-height:1.4em;margin-top:4px" }, " ");
+  canvas.addEventListener("mousemove", (ev) => {
+    const r = canvas.getBoundingClientRect(), cx = Math.floor(((ev.clientX - r.left) / r.width) * cols), cy = Math.floor(((ev.clientY - r.top) / r.height) * Math.ceil(bytes.length / cols));
+    const i = cy * cols + cx; if (i < 0 || i >= bytes.length) return;
+    read.textContent = `offset ${i} (0x${i.toString(16)}): ${bytes[i]}` + (i + 1 < bytes.length ? `  · u16 LE ${bytes[i] | (bytes[i + 1] << 8)}` : "") +
+      (ref && ref[i] !== bytes[i] ? `  · was ${ref[i]}` : "") + (i < 16 && kind === "patch" ? "  · header" : "") +
+      (i >= SVD.KINDS[kind].nameAt && i < SVD.KINDS[kind].nameAt + 16 ? "  · name" : "");
+  });
+  drawer.append(canvas, read);
+}
+
+function byteMap(bytes, ref, cols) {
+  const rows = Math.ceil(bytes.length / cols), px = 6, c = el("canvas", { width: cols * px, height: rows * px });
+  const g = c.getContext("2d"), a = hex(css("--ramp0")), b = hex(css("--ramp1")), acc = css("--accent");
+  for (let i = 0; i < bytes.length; i++) {
+    const t = bytes[i] / 255, x = (i % cols) * px, y = Math.floor(i / cols) * px;
+    g.fillStyle = `rgb(${a.map((v, j) => Math.round(v + (b[j] - v) * Math.sqrt(t))).join(",")})`;
+    g.fillRect(x, y, px - 1, px - 1);
+    if (ref && ref[i] !== bytes[i]) { g.strokeStyle = acc; g.lineWidth = 1.5; g.strokeRect(x + .75, y + .75, px - 2.5, px - 2.5); }
+  }
+  c.style.aspectRatio = `${cols} / ${rows}`;
+  return c;
+}
+function hex(s) { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(s); return m ? m.slice(1).map((h) => parseInt(h, 16)) : [128, 128, 128]; }
+
+/* ---------- output ---------- */
+function download(bytes, name, type = "application/octet-stream") {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = el("a", { href: url, download: name }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function exportSet() {
+  const recs = srcRecords().filter((r) => S.sel.includes(r.slot));
+  const name = prompt("File name for this patch set:", "my-patches.j08set");
+  if (name) download(SVD.encodeSet(recs), name.endsWith(".j08set") ? name : name + ".j08set");
+}
+function build() {
+  const box = $("#report"); box.replaceChildren();
+  try {
+    const { bytes, report } = SVD.build(S.base, S.ops);
+    S.built = { bytes, report };
+    const links = SVD.linkIssues(S.base, S.ops).map((i) => `${i.loc} ${i.name}: ${issueText(i)}`);
+    const log = { built: new Date().toISOString(), base: S.base.label, ...report, patternLinkWarnings: links,
+      ops: S.ops.map((o) => ({ op: o.op, kind: o.kind, slot: SVD.location(o.kind, o.slot), name: o.op === "place" ? o.from.name : o.name, from: o.from && `${o.from.label} ${o.from.loc}` })) };
+    box.append(
+      el("p", { class: "okc" }, `✓ Verified: ${report.recordsChanged} record${report.recordsChanged === 1 ? "" : "s"} changed, ${report.bytesChanged} bytes, none outside the edited records. The new file re-reads with the same structure as yours.`),
+      ...(links.length ? [el("p", { class: "links" }, `Built with ${links.length} pattern link warning${links.length > 1 ? "s" : ""} (listed above and in the change log).`)] : []),
+      el("table", {}, el("tr", {}, el("th", {}, "Slot"), el("th", {}, "Before"), el("th", {}, "After")),
+        ...report.changes.map((c) => el("tr", {}, el("td", { class: "mono" }, c.loc), el("td", {}, c.before), el("td", {}, c.after)))),
+      el("div", { class: "row", style: "margin-top:10px" },
+        el("button", { class: "primary", onclick: () => download(bytes, "JUPITER08Backup.svd") }, "Download JUPITER08Backup.svd"),
+        el("button", { onclick: () => download(JSON.stringify(log, null, 1), "JUPITER08Backup-changes.json", "application/json") }, "Download change log")),
+      el("p", { class: "hint" }, "Keep the file name JUPITER08Backup.svd: the unit expects it. If your browser adds “(1)” because the original is in the same folder, rename it in a separate folder, and keep your original untouched."));
+  } catch (e) { box.append(el("p", { class: "err" }, "Not built: " + e.message)); }
+}
+
+/* ---------- wiring ---------- */
+function wireDrop(zone, onFile) {
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("hot"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("hot"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("hot"); const f = e.dataTransfer.files[0]; if (f) onFile(f); });
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { S.tab = b.dataset.tab; S.sel = []; S.hover = null; S.focus = null; render(); }));
+$("#srcFile").addEventListener("change", async (e) => { for (const f of e.target.files) await addSource(await readFile(f), f.name); e.target.value = ""; });
+$("#clearOps").addEventListener("click", () => { S.ops = []; S.built = null; render(); });
+$("#buildBtn").addEventListener("click", build);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (S.sel.length || S.hover != null)) { S.sel = []; S.hover = null; render(); } });
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+let resizing; window.addEventListener("resize", () => { clearTimeout(resizing); resizing = setTimeout(() => S.base && render(), 150); });
+
+/* Dev hook for testing over http: ?base=URL&source=URL[&source=URL…] */
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("base")) { const r = await fetch(q.get("base")); await loadBase(new Uint8Array(await r.arrayBuffer()), q.get("base").split("/").pop()); }
+  for (const s of q.getAll("source")) { const r = await fetch(s); await addSource(new Uint8Array(await r.arrayBuffer()), decodeURIComponent(s.split("/").pop())); }
+  if (!S.base) render();
+})();
+</script>
+</body>
+</html>
