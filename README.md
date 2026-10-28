@@ -10,6 +10,8 @@ and nothing else changes.
 
 > **Status: v0.1.** Human-designed and human-tested on a real Jupiter-08, and written with AI
 > assistance. Each hardware claim below was checked on the unit.
+>
+> No patches are transmitted or stored server-side.
 
 ## Using it
 
@@ -92,6 +94,8 @@ assumptions when it parses a file.
 runs its checks against a real backup. They expect a unit that still holds the factory patches.
 
 ## License
+
+No patches are transmitted or stored server-side. I do not want to steal your patches.
 
 GPL-3.0-or-later; see `LICENSE`. You may use, modify and share this tool, including for money. If
 you distribute it or a modified version, including by hosting it on a website, you must make your
