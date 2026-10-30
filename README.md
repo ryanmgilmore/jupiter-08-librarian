@@ -1,15 +1,23 @@
 # Jupiter-08 Librarian
 
 A patch librarian (patch manager) for the Roland Jupiter-08, running in your browser. See what is
-stored in every patch and pattern slot, bring patches and patterns in from other backups, put them
-where you want, and build a new backup to restore.
+stored in every patch and preset slot, bring patches and presets in from other backups, put them
+where you want, and build a new backup to restore. Two more tabs read the same backup:
+
+- a **Patch Viewer/Editor** that shows where every control sits for a patch, and, in a browser that
+  supports Web MIDI, can follow the edits made on the unit over MIDI and push patch settings from the
+  browser to the unit.
+
+- a **Preset Viewer** that shows the sequences stored in each preset, the patches associated with each
+  preset, and the preset settings, including reverb and delay effect settings.
 
 The Jupiter-08 has no SysEx, so the only way to move patches onto it in bulk is a whole-unit
 restore. This tool edits the backup file so that a restore brings in exactly the patches you chose,
 and nothing else changes.
 
-> **Status: v0.1.** Human-designed and human-tested on a real Jupiter-08, and written with AI
-> assistance. Each hardware claim below was checked on the unit.
+> **Status: v0.2.** Human-designed and human-tested on a real Jupiter-08, and written with AI
+> assistance. The design and interaction ideas are the author's, and each feature was tested by a
+> person on the unit. Each hardware claim below was checked on the unit.
 >
 > No patches are transmitted or stored server-side.
 
@@ -20,7 +28,8 @@ and nothing else changes.
 2. **Open the tool** at <https://ryanmgilmore.github.io/jupiter-08-librarian/>, or download the repo
    (or just the `web/` folder) and open `web/index.html`, which works offline. Either way there is
    nothing to install, and your files never leave the browser.
-3. **Drop your backup** onto *Your memory*.
+3. **Drop your backup** onto the page (any tab), or use *Open backup…*. In the Patch/Preset Manager it
+   appears as *Your memory*.
 4. **Add sources** under *Bring in from*: someone else's backup, or a `.j08set` patch set.
 5. **Select and place.** Click a slot, ⇧-click a range, ⌘/Ctrl-click to add slots, or click a row
    label (A1, A2…) or *select group* to take a whole bank or group. Point at a slot in *Your memory*
@@ -48,7 +57,18 @@ without sharing your whole unit.
 
 ### Patterns play patches by slot number
 
-A pattern does not contain its patches; it stores which slot its LOWER and UPPER parts play. If you
+A pattern is what the panel calls a **preset** (HOLD PRESET). It holds:
+
+- the slot numbers of the two patches its LOWER and UPPER parts play, not the patches themselves
+- the part settings a patch does not store, such as Poly Mode
+- the sequence for each part
+- the tempo
+- the delay and reverb settings
+
+Saving a pattern on the unit does not save edits to its patches; save each patch to its own slot as
+well.
+
+Because a pattern does not contain its patches, it plays whatever is in those slots. If you
 copy a pattern without its patches, or overwrite a patch one of your patterns uses, that pattern
 will sound different. The *Changes* list warns about every case. For an incoming pattern, **bring
 along** copies the patch it needs into the same slot. That can displace a patch one of your own
@@ -59,6 +79,37 @@ blocks: you can always build anyway.
 
 Selecting a row, group or range skips empty slots by default, so anything under them in your memory
 stays. Turn on **Include empty slots** to copy them too, which clears the destination.
+
+## The viewers
+
+Both viewers are read-only views of the backup you loaded. The Detail panel's **View** button opens
+a patch or preset from your memory or from a source. They label how sure they are:
+**Known** (checked against the manual or the unit), **Likely** (fits every observation so far) and
+**Observed** (seen on the unit, not explained). Anything not yet decoded says so rather than
+guessing.
+
+### Patch Viewer/Editor
+
+Lays out the panel and shows each control's stored value, in physical units where they have been
+measured (a bound is shown where they have not), plus the menu settings and effects. Step through
+patches with ↑/↓.
+
+**MIDI (Chrome or Edge; Safari has no Web MIDI).** *Connect MIDI*, pick the channel (LOWER is
+channel 2 on the unit this was tested on), and *follow the unit* shows the panel moving as you turn
+knobs. *Send patch to unit* puts the patch's panel controls in the unit's **edit buffer**. Nothing is
+sent unless you press it, and nothing is saved on the unit until you press its own save button.
+Effects and menu settings have no MIDI control and are not sent. The Roland USB driver must be
+installed.
+
+### Preset Viewer
+
+Shows a preset's two patches, each part's sequence (steps, length, resolution), and the settings it
+stores: part volume, pan and sends, delay and reverb, shuffle, scale, direction, key split and
+arpeggio. Not stored in a preset, and so not shown: key transpose and bend range. The motion
+(CC) records are not decoded. Gate length is **Observed**: it fits gate/100 of a step, with a clock of
+scatter nobody has explained.
+
+These settings were decoded from one unit on firmware 1.00 and may differ on other firmware.
 
 ## Safety
 
@@ -73,7 +124,11 @@ stays. Turn on **Include empty slots** to copy them too, which clears the destin
 slot, a whole group of 48 patches merged, and a file using move, swap, clearing a slot and copying a
 pattern each restore and back up again byte-identical.
 
-**Not yet verified:** restores from units on other firmware versions. If yours differs, the tool
+**Viewers and MIDI:** checked on the same unit: the viewers against its backups, and the MIDI follow
+and send-to-edit-buffer (which does not save) from Chrome.
+
+**Not yet verified:** restores from units on other firmware versions, and the viewers' decoding on
+anything but firmware 1.00. If yours differs, the tool
 will most likely refuse the file rather than guess. Please open an issue if it does.
 
 There is no warranty (see the license). Keep your original backup.
@@ -90,7 +145,9 @@ assumptions when it parses a file.
 
 ## Development
 
-`web/svd.js` holds all the file logic, with no DOM. `node web/test-svd.js path/to/JUPITER08Backup.svd`
+`web/index.html` is the page. `web/svd.js` holds all the file logic, with no DOM; `web/preset-core.js`
+and `web/panel-core.js` decode presets and patches for the viewers, and `web/panel-midi.js` is the
+Web MIDI part. Nothing is fetched at runtime. `node web/test-svd.js path/to/JUPITER08Backup.svd`
 runs its checks against a real backup. They expect a unit that still holds the factory patches.
 
 ## License

@@ -4,123 +4,300 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jupiter-08 Memory</title>
+<title>Jupiter-08 Librarian</title>
 <style>
+
 :root {
   --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6d6a64; --line: #dedad2;
   --init: #efece6; --initInk: #a29e96; --named: #ffffff;
   --accent: #d2551f; --accentSoft: #fbe4d8; --sel: #2463c7; --selSoft: #dde8fa;
-  --warn: #8a5a00; --warnSoft: #fff3d6; --ok: #2b7a3d; --bad: #b3261e;
+  --warn: #8a5a00; --warnSoft: #fff3d6; --ok: #2b7a3d; --bad: #b3261e; --bankAlt: #f1efea;
   --ramp0: #f3f1ec; --ramp1: #24467a;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  /* The panel itself is drawn as the hardware is, in both themes. */
+  --face: #1c1c1b; --faceInk: #e9e6df; --faceMuted: #8f8b83; --band: #e2632b; --bandInk: #1c1c1b;
+  --track: #050505; --cap: #d8d5ce; --capInk: #1c1c1b; --knob: #2b2a28; --ledOff: #3a3936; --ledOn: #ff5a2a;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #161614; --panel: #1f1e1c; --ink: #ecebe7; --muted: #9a968e; --line: #34322e;
   --init: #252421; --initInk: #6d6a64; --named: #2a2926;
   --accent: #f07a42; --accentSoft: #4a2a1b; --sel: #6ea0f0; --selSoft: #1e2d47;
-  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80;
-  --ramp0: #232220; --ramp1: #8fb4f0;
+  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80; --bankAlt: #262522;
+  --ramp0: #232220; --ramp1: #8fb4f0; --face: #232321;
 }}
 :root[data-theme="dark"] {
   --bg: #161614; --panel: #1f1e1c; --ink: #ecebe7; --muted: #9a968e; --line: #34322e;
   --init: #252421; --initInk: #6d6a64; --named: #2a2926;
   --accent: #f07a42; --accentSoft: #4a2a1b; --sel: #6ea0f0; --selSoft: #1e2d47;
-  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80;
-  --ramp0: #232220; --ramp1: #8fb4f0;
+  --warn: #f0c060; --warnSoft: #3a2f14; --ok: #6fcf86; --bad: #ff8a80; --bankAlt: #262522;
+  --ramp0: #232220; --ramp1: #8fb4f0; --face: #232321;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-header { padding: 14px 20px 10px; display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: baseline; border-bottom: 1px solid var(--line); background: var(--panel); }
-h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
-.sub { color: var(--muted); font-size: 13px; }
-.banner { background: var(--warnSoft); color: var(--warn); padding: 8px 20px; font-size: 13px; border-bottom: 1px solid var(--line); }
-main { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(220px, 250px) minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+header.shell { padding: 6px 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border-bottom: 1px solid var(--line); background: var(--panel); }
+header.shell h1 { font-size: 16px; margin: 0; letter-spacing: .02em; }
+.top { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.top button { font: 600 13px -apple-system, BlinkMacSystemFont, sans-serif; border: 0; border-radius: 6px; padding: 4px 14px; background: none; color: var(--muted); cursor: pointer; }
+.top button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px #0002; }
+.openbtn { cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; background: var(--bg); font-size: 13px; color: var(--ink); }
+.openbtn:hover { border-color: var(--muted); }
+.openbtn input { display: none; }
+.veil { position: fixed; inset: 49px 0 0 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--bg) 88%, transparent); border: 3px dashed var(--sel); color: var(--sel); font-size: 18px; font-weight: 600; }
+
+/* ---- Patch Manager (from index.html) ---- */
+#paneManager h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+#paneManager .sub { color: var(--muted); font-size: 13px; }
+#paneManager .banner { background: var(--warnSoft); color: var(--warn); padding: 8px 20px; font-size: 13px; border-bottom: 1px solid var(--line); }
+#paneManager main { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(220px, 250px) minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
 /* Detail stays in view while the grids scroll. */
-.side { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
-@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 40px; } .side { position: static; max-height: none; } }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.spacer { flex: 1; }
-button, select, .filebtn { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
-button:hover:not(:disabled), .filebtn:hover { border-color: var(--muted); }
-button:disabled { opacity: .45; cursor: default; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
-.filebtn input { display: none; }
-.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted); }
-.drop.hot { border-color: var(--accent); color: var(--accent); }
-.err { color: var(--bad); font-size: 13px; }
-.okc { color: var(--ok); }
-
-.groups { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); margin-top: 10px; }
-.group h3 { margin: 0 0 4px; font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
-.group h3 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
-.grid { display: grid; grid-template-columns: 22px repeat(6, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: 1fr; gap: 2px; }
-.bank { font: 11px var(--mono); color: var(--muted); display: flex; align-items: center; cursor: pointer; }
-.bank:hover { color: var(--ink); }
-.cell { position: relative; min-width: 0; height: 42px; padding: 2px 4px; border-radius: 4px; background: var(--named); border: 1px solid var(--line); cursor: pointer; overflow: hidden; user-select: none; }
-.cell .loc { font: 9.5px var(--mono); color: var(--muted); display: block; line-height: 1.2; }
-.cell .nm { font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
-.cell.init { background: var(--init); border-color: transparent; }
-.cell.init .nm { color: var(--initInk); font-style: italic; }
-.cell.pending { background: var(--accentSoft); border-color: var(--accent); }
-.cell.pending::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.cell.renamed .nm { font-style: italic; }
-.cell.selected { outline: 2px solid var(--sel); outline-offset: -1px; background: var(--selSoft); }
-.cell.focus { box-shadow: 0 0 0 2px var(--ink) inset; }
-.cell.ghost { border: 1.5px dashed var(--sel); background: var(--selSoft); }
-.cell.ghost .nm { color: var(--sel); }
-.cell.nogo { border: 1.5px dashed var(--bad); }
-.cell.swap { outline: 2px dashed var(--sel); outline-offset: -1px; background: var(--selSoft); }
-.compact .cell { height: auto; min-height: 22px; padding: 3px 5px; display: flex; gap: 5px; align-items: baseline; }
-.compact .cell .loc { display: inline; flex: none; font-size: 10px; }
-.compact .cell .nm { flex: 1; min-width: 0; }
+#paneManager .side { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+@media (max-width: 1000px) {
+#paneManager main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 40px; }
+#paneManager .side { position: static; max-height: none; }
+}
+#paneManager .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+#paneManager .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#paneManager .spacer { flex: 1; }
+#paneManager button, #paneManager select, #paneManager .filebtn { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+#paneManager button:hover:not(:disabled), #paneManager .filebtn:hover { border-color: var(--muted); }
+#paneManager button:disabled { opacity: .45; cursor: default; }
+#paneManager button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#paneManager .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+#paneManager .filebtn input { display: none; }
+#paneManager .drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted); }
+#paneManager .drop.hot { border-color: var(--accent); color: var(--accent); }
+#paneManager .err { color: var(--bad); font-size: 13px; }
+#paneManager .okc { color: var(--ok); }
+#paneManager .groups { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); margin-top: 10px; }
+#paneManager .group h3 { margin: 0 0 4px; font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
+#paneManager .group h3 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
+#paneManager .grid { display: grid; grid-template-columns: 22px repeat(6, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: 1fr; gap: 2px; }
+#paneManager .bank { font: 11px var(--mono); color: var(--muted); display: flex; align-items: center; cursor: pointer; }
+#paneManager .bank:hover { color: var(--ink); }
+#paneManager .cell { position: relative; min-width: 0; height: 42px; padding: 2px 4px; border-radius: 4px; background: var(--named); border: 1px solid var(--line); cursor: pointer; overflow: hidden; user-select: none; }
+#paneManager .cell .loc { font: 9.5px var(--mono); color: var(--muted); display: block; line-height: 1.2; }
+#paneManager .cell .nm { font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
+#paneManager .cell.init { background: var(--init); border-color: transparent; }
+#paneManager .cell.init .nm { color: var(--initInk); font-style: italic; }
+#paneManager .cell.pending { background: var(--accentSoft); border-color: var(--accent); }
+#paneManager .cell.pending::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+#paneManager .cell.renamed .nm { font-style: italic; }
+#paneManager .cell.selected { outline: 2px solid var(--sel); outline-offset: -1px; background: var(--selSoft); }
+#paneManager .cell.focus { box-shadow: 0 0 0 2px var(--ink) inset; }
+#paneManager .cell.ghost { border: 1.5px dashed var(--sel); background: var(--selSoft); }
+#paneManager .cell.ghost .nm { color: var(--sel); }
+#paneManager .cell.nogo { border: 1.5px dashed var(--bad); }
+#paneManager .cell.swap { outline: 2px dashed var(--sel); outline-offset: -1px; background: var(--selSoft); }
+#paneManager .compact .cell { height: auto; min-height: 22px; padding: 3px 5px; display: flex; gap: 5px; align-items: baseline; }
+#paneManager .compact .cell .loc { display: inline; flex: none; font-size: 10px; }
+#paneManager .compact .cell .nm { flex: 1; min-width: 0; }
 /* Address beside the name only where a group is wide enough for both; otherwise on its own line above. */
-.group { container-type: inline-size; }
-@container (max-width: 639px) { .compact .cell { flex-direction: column; gap: 0; align-items: stretch; } .compact .cell .nm { flex: none; -webkit-line-clamp: 3; } }
-.colh { font: 10px var(--mono); color: var(--muted); padding-left: 5px; }
-
-.mapbar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); margin-top: 8px; }
-.mapbar div { height: 100%; }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
-.slotstrip { display: grid; grid-template-columns: repeat(64, 1fr); gap: 1px; margin-top: 8px; }
-.slotstrip div { height: 9px; border-radius: 1px; }
-
-.ops { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; }
-.ops li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-.ops li:last-child { border-bottom: 0; }
-.ops .loc { font-family: var(--mono); font-size: 12px; min-width: 42px; }
-.ops .x { margin-left: auto; padding: 0 7px; }
-.mono { font-family: var(--mono); }
-.detail input[type=text] { flex: 1; min-width: 0; width: auto; }
-.detail details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
-.detail summary { cursor: pointer; font-size: 13px; color: var(--muted); }
-.detail canvas { width: 100%; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px; display: block; margin-top: 8px; cursor: crosshair; }
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; margin-top: 6px; }
-.kv dt { color: var(--muted); }
-.kv dd { margin: 0; }
-input[type=text] { font: 13px var(--mono); padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); width: 13em; }
-.hint { font-size: 12px; color: var(--muted); }
-.report { margin-top: 10px; font-size: 13px; }
-.report table { border-collapse: collapse; width: 100%; margin-top: 6px; }
-.report td, .report th { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
-.stack > * + * { margin-top: 16px; }
-.links { margin-top: 10px; background: var(--warnSoft); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
-.links ul { margin: 6px 0 0; padding-left: 18px; }
-.links li { margin: 3px 0; }
-.links button { padding: 1px 7px; font-size: 12px; margin-left: 6px; }
-.check { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+#paneManager .group { container-type: inline-size; }
+@container (max-width: 639px) {
+#paneManager .compact .cell { flex-direction: column; gap: 0; align-items: stretch; }
+#paneManager .compact .cell .nm { flex: none; -webkit-line-clamp: 3; }
+}
+#paneManager .colh { font: 10px var(--mono); color: var(--muted); padding-left: 5px; }
+#paneManager .mapbar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); margin-top: 8px; }
+#paneManager .mapbar div { height: 100%; }
+#paneManager .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+#paneManager .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+#paneManager .slotstrip { display: grid; grid-template-columns: repeat(64, 1fr); gap: 1px; margin-top: 8px; }
+#paneManager .slotstrip div { height: 9px; border-radius: 1px; }
+#paneManager .ops { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; }
+#paneManager .ops li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+#paneManager .ops li:last-child { border-bottom: 0; }
+#paneManager .ops .loc { font-family: var(--mono); font-size: 12px; min-width: 42px; }
+#paneManager .ops .x { margin-left: auto; padding: 0 7px; }
+#paneManager .mono { font-family: var(--mono); }
+#paneManager .detail input[type=text] { flex: 1; min-width: 0; width: auto; }
+#paneManager .detail details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+#paneManager .detail summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+#paneManager .detail canvas { width: 100%; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px; display: block; margin-top: 8px; cursor: crosshair; }
+#paneManager .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; margin-top: 6px; }
+#paneManager .kv dt { color: var(--muted); }
+#paneManager .kv dd { margin: 0; }
+#paneManager input[type=text] { font: 13px var(--mono); padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); width: 13em; }
+#paneManager .hint { font-size: 12px; color: var(--muted); }
+#paneManager .report { margin-top: 10px; font-size: 13px; }
+#paneManager .report table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+#paneManager .report td, #paneManager .report th { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+#paneManager .stack > * + * { margin-top: 16px; }
+#paneManager .links { margin-top: 10px; background: var(--warnSoft); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+#paneManager .links ul { margin: 6px 0 0; padding-left: 18px; }
+#paneManager .links li { margin: 3px 0; }
+#paneManager .links button { padding: 1px 7px; font-size: 12px; margin-left: 6px; }
+#paneManager .check { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+/* ---- Patch Viewer/Editor and Preset Viewer (from panel.html) ---- */
+.vscope h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.vscope .sub { color: var(--muted); font-size: 13px; }
+.vscope .midi { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 13px; color: var(--muted); }
+.vscope .midi button, .vscope .midi select { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; background: var(--bg); color: var(--ink); cursor: pointer; }
+.vscope .midi button:disabled { opacity: .5; cursor: default; }
+.vscope .midi .on { color: var(--ink); }
+.vscope .presetnote { margin-left: auto; max-width: 440px; font-size: 11px; line-height: 1.25; color: var(--muted); }
+.vscope .title .edited { font-size: 12px; color: var(--warn); }
+.vscope .vgrid { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; }
+.vscope .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.vscope .side { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column; }
+.vscope .vgrid.single { grid-template-columns: minmax(0, 1fr); }
+.vscope .vgrid.presets { grid-template-columns: minmax(0, 480px) minmax(0, 1fr); }
+@media (max-width: 820px) {
+.vscope .vgrid.presets { grid-template-columns: minmax(0, 1fr); }
+}
+.vscope #presetList { max-height: calc(100vh - 100px); overflow: auto; }
+.vscope #patTable tbody tr { cursor: pointer; }
+.vscope #patTable tr.sel td { background: var(--selSoft); color: var(--sel); }
+.vscope #preset .meta { color: var(--muted); font-size: 13px; margin: 2px 0 12px; }
+.vscope #preset .part { margin-top: 14px; }
+.vscope #preset .part h3 { font-size: 13px; margin: 0 0 4px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.vscope #preset .part h3 .lbl { letter-spacing: .08em; }
+.vscope #preset .part h3 .sub { font-weight: 400; }
+.vscope #preset .part a { color: var(--sel); cursor: pointer; text-decoration: none; }
+.vscope #preset .part a:hover { text-decoration: underline; }
+.vscope #preset .part a .loc { font-family: var(--mono); font-size: 12px; margin-right: 6px; }
+.vscope .roll { display: block; width: 100%; height: auto; }
+.vscope .roll .bg { fill: var(--bg); }
+.vscope .roll .row.black { fill: var(--bankAlt); }
+.vscope .roll .beat { stroke: var(--line); stroke-width: 1; }
+.vscope .roll .bar { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.vscope .roll .note { fill: var(--sel); }
+.vscope .roll .open { fill: none; stroke: var(--sel); stroke-dasharray: 2 2; }
+.vscope .roll .axis { fill: var(--muted); font: 10px var(--mono); }
+.vscope .roll .bend { fill: var(--warn); }
+.vscope .roll .bendzero { stroke: var(--line); }
+.vscope #patTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vscope #patTable th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.vscope #patTable td { padding: 3px 8px; white-space: nowrap; }
+.vscope #patTable td.loc, .vscope #patTable td.num { font-family: var(--mono); color: var(--muted); }
+.vscope #patTable .num { text-align: right; }
+.vscope #patTable tr.init td { color: var(--muted); }
+.vscope #patTable tr.alt td { background: var(--bankAlt); }
+.vscope #patTable a { color: var(--sel); text-decoration: none; cursor: pointer; }
+.vscope #patTable a:hover { text-decoration: underline; }
+.vscope #patTable a .loc { font-family: var(--mono); font-size: 12px; margin-right: 6px; }
+.vscope #filter { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); margin-bottom: 8px; font: inherit; }
+.vscope #slots { position: relative; overflow: auto; margin: 0; padding: 0; list-style: none; outline: none; }
+.vscope #slots li { display: flex; gap: 8px; padding: 3px 6px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.vscope #slots li .loc { font-family: var(--mono); color: var(--muted); font-size: 12px; padding-top: 1px; }
+.vscope #slots li.init { color: var(--muted); }
+/* Banks of six alternate shade, so a bank reads as a block without changing the spacing. */
+.vscope #slots li.alt { background: var(--bankAlt); }
+.vscope #groups { display: flex; gap: 4px; margin-bottom: 8px; }
+.vscope #groups button { flex: 1; font: 600 13px var(--mono); padding: 5px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); cursor: pointer; }
+.vscope #groups button.on { background: var(--sel); border-color: var(--sel); color: #fff; }
+.vscope #groups button:disabled { opacity: .35; cursor: default; }
+.vscope #slots li.sel { background: var(--selSoft); color: var(--sel); }
+.vscope #slots li.sel .loc { color: var(--sel); }
+.vscope .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 40px 20px; text-align: center; color: var(--muted); }
+.vscope .drop.hot { border-color: var(--sel); color: var(--sel); }
+.vscope .title { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; margin-bottom: 10px; }
+.vscope .title .name { font-size: 20px; font-weight: 600; font-family: var(--mono); }
+.vscope .title .loc { font-family: var(--mono); color: var(--muted); }
+.vscope #info { min-height: 20px; font-size: 13px; color: var(--muted); margin: 8px 2px 0; font-family: var(--mono); }
+.vscope .scroller { overflow-x: auto; }
+/* Fit the window: never taller than the space under the header, scaling down (aspect kept) instead. */
+.vscope .jp-panel { display: block; width: 100%; height: auto; max-height: calc(100vh - 150px); margin: 0 auto; }
+.vscope .menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 18px; margin-top: 4px; }
+.vscope .menu div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding: 3px 0; font-size: 13px; }
+.vscope .menu .v { font-family: var(--mono); }
+.vscope .badge { font-size: 11px; color: var(--warn); background: var(--warnSoft); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+.vscope .legend { font-size: 12px; color: var(--muted); margin-top: 10px; }
+.vscope .legend b { font-weight: 600; }
+/* Panel drawing */
+.vscope .jp-panel .face { fill: var(--face); }
+.vscope .jp-panel .band { fill: var(--band); }
+.vscope .jp-panel .band-label { fill: var(--bandInk); font: 700 10.5px -apple-system, sans-serif; letter-spacing: .08em; }
+.vscope .jp-panel .ctl-label { fill: var(--faceInk); font: 600 9px -apple-system, sans-serif; letter-spacing: .04em; }
+.vscope .jp-panel .hit { fill: transparent; }
+.vscope .jp-panel .ctl:hover .hit, .vscope .jp-panel .ctl.lit .hit { fill: rgba(255, 255, 255, .05); }
+.vscope .jp-panel .tick { stroke: var(--faceMuted); stroke-width: 1; }
+.vscope .jp-panel .tick.major { stroke: var(--faceInk); }
+.vscope .jp-panel .scale { fill: var(--faceMuted); font: 600 8px -apple-system, sans-serif; }
+.vscope .jp-panel .dot { fill: var(--faceMuted); }
+.vscope .jp-panel .track { fill: var(--track); }
+.vscope .jp-panel .capbody { fill: var(--cap); stroke: #00000066; }
+.vscope .jp-panel .capline { stroke: var(--capInk); stroke-width: 1.5; }
+.vscope .jp-panel .cap.unknown { opacity: .25; }
+.vscope .jp-panel .knobface { fill: var(--knob); stroke: #000; stroke-width: 1.5; }
+.vscope .jp-panel .pointer { stroke: #f4f1ea; stroke-width: 2.5; stroke-linecap: round; }
+.vscope .jp-panel .pointer.unknown { opacity: .2; }
+.vscope .jp-panel .slot { fill: var(--track); }
+.vscope .jp-panel .thumb { fill: var(--cap); stroke: #00000066; }
+.vscope .jp-panel .thumb.unset { fill: none; stroke: var(--faceMuted); stroke-width: 1; stroke-dasharray: 2 1.5; }
+.vscope .jp-panel .pos { fill: var(--faceMuted); font: 600 8.5px -apple-system, sans-serif; }
+.vscope .jp-panel .pos.small { font-size: 7.5px; }
+.vscope .jp-panel .val { fill: var(--faceInk); font: 600 11px var(--mono); }
+.vscope .jp-panel .knobval { fill: var(--band); }
+.vscope .jp-panel .silk { pointer-events: none; }
+.vscope .jp-panel .silk-line { stroke: var(--faceInk); stroke-width: 1.1; fill: none; }
+.vscope .jp-panel .silk-head { fill: var(--faceInk); }
+.vscope .jp-panel .tag { fill: var(--band); }
+.vscope .jp-panel .tag-text { fill: var(--bandInk); font: 700 8px -apple-system, sans-serif; letter-spacing: .03em; }
+/* LFO LED: a dim base with a lit layer whose opacity traces the LFO waveform. */
+.vscope .jp-panel .lfo-led-base { fill: #4a2219; stroke: #5a1508; stroke-width: 1.2; }
+.vscope .jp-panel .lfo-led { fill: #ff4b2b; animation: 1s infinite; transition-property: opacity; transition-timing-function: ease-in-out; }
+.vscope .jp-panel .lfo-led.off { opacity: 0; }
+.vscope .jp-panel .lfo-led.lfo-sine { animation-name: lfo-swing; animation-timing-function: ease-in-out; }
+.vscope .jp-panel .lfo-led.lfo-tri { animation-name: lfo-swing; animation-timing-function: linear; }
+.vscope .jp-panel .lfo-led.lfo-sawdown { animation-name: lfo-fall; animation-timing-function: linear; }
+.vscope .jp-panel .lfo-led.lfo-square { animation-name: lfo-swing; animation-timing-function: step-end; }
+@keyframes lfo-swing { 0% { opacity: 1; } 50% { opacity: .06; } 100% { opacity: 1; } }
+@keyframes lfo-fall { 0% { opacity: 1; } 100% { opacity: .06; } }
+@media (prefers-reduced-motion: reduce) {
+.vscope .jp-panel .lfo-led { animation: none !important; opacity: 1; }
+}
+.vscope .jp-panel .unit { fill: var(--faceMuted); font: 600 8px -apple-system, sans-serif; }
+.vscope .jp-panel .glyph { fill: none; stroke: var(--faceInk); stroke-width: 1.1; stroke-linejoin: round; }
+.vscope .jp-panel .mark { fill: var(--faceInk); font: 600 7.5px -apple-system, sans-serif; text-anchor: middle; }
+.vscope .jp-panel .sub { fill: var(--band); font: 600 8px -apple-system, sans-serif; }
+@media (max-width: 760px) {
+.vscope .vgrid { grid-template-columns: 1fr; padding: 12px 16px 32px; }
+.vscope .side { position: static; max-height: 40vh; }
+}
+.vscope .sgroups, .vscope .mgroups { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin: 4px 0 6px; }
+.vscope .sgroup { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px 6px; background: var(--bg); }
+.vscope .sgroup h3 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.vscope .sgroup > div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 13px; border-top: 1px solid var(--line); }
+.vscope .sgroup .v { font-family: var(--mono); text-align: right; }
+.vscope .sgroup .chg .v, .vscope .chips .chg { color: var(--band); font-weight: 600; }
+.vscope .sgroup.wide { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0 20px; }
+.vscope .sgroup.wide h3 { grid-column: 1 / -1; }
+.vscope #preset .chips { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+.vscope #patTable { table-layout: fixed; }
+.vscope #patTable th:nth-child(1) { width: 46px; } .vscope #patTable th:nth-child(2) { width: 36%; }
+.vscope #patTable th:nth-child(3) { width: 50px; }
+.vscope #patTable th:nth-child(4), .vscope #patTable th:nth-child(5) { width: 22%; }
+.vscope #patTable td { overflow: hidden; text-overflow: ellipsis; }
+.vscope .drop .openbtn, .vscope #patEmpty .openbtn { display: inline-block; margin: 0 6px; }
+.vgrid { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; }
+.vgrid.presets { grid-template-columns: minmax(0, 480px) minmax(0, 1fr); }
+/* The list card starts below the header and the pane's top padding: leave room for both, so its bottom edge is on screen on load. */
+@media (min-width: 821px) { .vscope .side { max-height: calc(100vh - 84px); } }
+@media (max-width: 820px) { .vgrid, .vgrid.presets { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 32px; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Jupiter-08 Memory</h1>
-  <span class="sub">See what is stored where in a backup, bring in patches and patterns from other backups or patch sets, and build a new backup with only those changes.</span>
-  <span class="spacer"></span>
-  <span class="sub">Files stay in this browser; nothing is uploaded.</span>
+<header class="shell vscope">
+  <h1>Jupiter-08 Librarian</h1>
+  <nav class="top" role="tablist" aria-label="Tool">
+    <button role="tab" data-tab="manager" class="on" title="See what is stored where in a backup, bring in patches and presets from other backups or patch sets, and build a new backup with only those changes.">Patch/Preset Manager</button>
+    <button role="tab" data-tab="patches" title="Where every control sits for each patch. Follows the unit over MIDI and can send a patch to its edit buffer; nothing is sent unless you press Send.">Patch Viewer/Editor</button>
+    <button role="tab" data-tab="presets" title="What each preset (the manual's pattern) plays: its two patches, each part's sequence and the settings it stores. Read only.">Preset Viewer</button>
+  </nav>
+  <div class="presetnote" id="presetNote" hidden>Presets include references to patch slots for its upper and lower parts, sequences for both parts, part settings not stored per patch, and reverb/delay settings.</div>
+  <div class="midi" id="midi" hidden>
+    <span id="midiStatus">MIDI</span>
+    <button id="midiConnect" type="button">Connect MIDI</button>
+    <label id="midiChLabel" hidden>channel <select id="midiCh" aria-label="MIDI channel"></select></label>
+    <label id="midiFollowLabel" hidden><input type="checkbox" id="midiFollow" checked> follow the unit</label>
+    <button id="midiSend" type="button" hidden disabled title="Puts this patch's panel controls in the unit's edit buffer. The unit saves only when you press its save button. Effects and menu settings have no MIDI control and are not sent.">Send patch to unit</button>
+  </div>
 </header>
+
+<div class="veil" id="veil" hidden>Drop a backup or patch set to open it</div>
+<div id="paneManager">
 <div class="banner" id="banner">Restoring merged backups is verified on hardware, for one patch and for a whole group. Patterns play patches by slot number: the Changes list warns when a pattern would play a different patch than it was made with. Keep your original backup file safe.</div>
 
 <main>
@@ -146,7 +323,13 @@ input[type=text] { font: 13px var(--mono); padding: 5px 7px; border: 1px solid v
         <span class="spacer"></span>
         <div class="tabs row" role="group" aria-label="Show">
           <button data-tab="patch" aria-pressed="true">Patches</button>
-          <button data-tab="pattern" aria-pressed="false">Patterns</button>
+          <button data-tab="pattern" aria-pressed="false" title="A preset is what the manual calls a pattern. It holds:
+• the slot numbers of the two patches its LOWER and UPPER parts play, not the patches themselves
+• the part settings a patch does not store, such as volume and pan
+• the sequence for each part
+• the tempo
+• the delay and reverb settings, shuffle and step scale
+Saving a preset does not save edits to its patches: save each patch to its own slot as well.">Presets</button>
         </div>
       </div>
       <div id="mineBody"></div>
@@ -164,8 +347,59 @@ input[type=text] { font: 13px var(--mono); padding: 5px 7px; border: 1px solid v
     </section>
   </div>
 </main>
+</div>
+<div class="vgrid vscope" id="patchesTab" hidden>
+  <section class="card side">
+    <h2 id="srcName" hidden></h2>
+    <div id="groups" role="tablist" aria-label="Group"></div>
+    <input id="filter" type="search" placeholder="Search all groups" aria-label="Search">
+    <ul id="slots" tabindex="0" aria-label="Patches"></ul>
+  </section>
+  <section>
+    <div id="drop" class="drop">Nothing to show yet. <label class="openbtn">Open backup…<input type="file" class="openin" accept=".svd,.j08set"></label> <span class="sub">or drop a JUPITER08Backup.svd here.</span></div>
+    <div id="view" class="card" hidden>
+      <div class="title"><span class="loc" id="pLoc"></span><span class="name" id="pName"></span><span class="edited" id="pEdited" hidden>moved on the unit (not saved)</span></div>
+      <div class="scroller" id="panelHost"></div>
+      <div id="info"></div>
+      <div class="legend">The panel has one set of ENV sliders behind an ENV SELECT switch; here ENV-1 and ENV-2 are drawn
+        side by side. A minus sign on VCF ENV MOD is the filter envelope's stored polarity.
+        Hover a control for its CC and stored value. ↑/↓ moves through patches.</div>
+    </div>
+    <div id="menuCard" class="card" hidden style="margin-top:16px">
+      <h2>Menu settings</h2>
+      <div class="mgroups" id="menu"></div>
+    </div>
+  </section>
+</div>
+<div class="vgrid presets vscope" id="presetsTab" hidden>
+  <section class="card">
+    <h2 id="patSrc" hidden></h2>
+    <div id="patEmpty" class="sub"><div class="drop">Open a backup to see its presets. <label class="openbtn">Open backup…<input type="file" class="openin" accept=".svd,.j08set"></label> <span class="sub">or drop a JUPITER08Backup.svd here.</span></div></div>
+    <div id="presetList"><table id="patTable" hidden>
+      <thead><tr><th>Slot</th><th>Name</th><th class="num">Tempo</th><th>LOWER patch</th><th>UPPER patch</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+  <section class="card" id="preset" hidden>
+    <div class="title"><span class="loc" id="prLoc"></span><span class="name" id="prName"></span></div>
+    <div class="meta" id="prMeta"></div>
+    <div id="prSettings" class="sgroups"></div>
+    <div id="prParts"></div>
+    <p class="legend">Each part loops on its own length. Brightness is velocity; a dashed end is a note tied past the
+      last step. Gate lengths are a percentage of the step (checked against the unit's clocked playback); bends are drawn under the notes.
+      Orange values differ from an empty preset. Not decoded: recorded knob motion.
+      Hover a note for its values. ↑/↓ moves through presets.</p>
+  </section>
+</div>
 
 <script src="svd.js"></script>
+<script src="jp08-curves.js"></script>
+<script src="jp08-mfx.js"></script>
+<script src="panel-core.js"></script>
+<script src="preset-core.js"></script>
+<script src="panel-view.js"></script>
+<script src="panel-midi.js"></script>
+<script src="viewer.js"></script>
 <script>
 "use strict";
 const $ = (s, r = document) => r.querySelector(s);
@@ -252,6 +486,7 @@ function alertSrc(msg) { $("#srcBody").prepend(el("p", { class: "err" }, msg)); 
 function render() {
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === S.tab));
   renderMine(); renderSrc(); renderOps(); renderDetail();
+  if (window.onRender) window.onRender();
 }
 
 function renderMine() {
@@ -516,6 +751,7 @@ function renderDetail() {
         kind === "pattern" ? ["Plays", (({ lower, upper }) => `LOWER ${SVD.location("patch", lower) ?? "?"}, UPPER ${SVD.location("patch", upper) ?? "?"}`)(SVD.patternRefs(bytes))] : null]
       .filter(Boolean).flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
   body.append(el("div", { class: "row" }, el("b", { style: "font-size:15px" }, name), el("span", { class: "spacer" }),
+    loc ? el("button", { onclick: () => openInViewer(kind, loc, isMine ? "mine" : "src"), title: "Show this in the " + (kind === "patch" ? "Patch Viewer/Editor" : "Preset Viewer") }, "View") : null,
     isMine && S.ops.some((o) => o.kind === kind && o.slot === rec.slot) ? el("button", { onclick: () => { S.ops = S.ops.filter((o) => !(o.kind === kind && o.slot === rec.slot)); render(); } }, "Revert this slot") : null), kv);
   if (isMine) {
     const input = el("input", { type: "text", value: name, maxlength: 16, spellcheck: "false" });
@@ -618,6 +854,79 @@ let resizing; window.addEventListener("resize", () => { clearTimeout(resizing); 
   if (q.get("base")) { const r = await fetch(q.get("base")); await loadBase(new Uint8Array(await r.arrayBuffer()), q.get("base").split("/").pop()); }
   for (const s of q.getAll("source")) { const r = await fetch(s); await addSource(new Uint8Array(await r.arrayBuffer()), decodeURIComponent(s.split("/").pop())); }
   if (!S.base) render();
+})();
+</script>
+<script>
+(function () {
+"use strict";
+const byId = (id) => document.getElementById(id);
+const PANES = { manager: "paneManager", patches: "patchesTab", presets: "presetsTab" };
+let tab = "manager", viewSrc = -1, lastKey = null;
+
+/* The viewers show your memory with its pending changes. Only with no backup loaded do they show a patch
+ * set that was opened on its own. */
+function mineRecords(kind) {
+  return S.base[kind].map((r) => { const e = eff(kind, r.slot); return { ...r, name: e.name, bytes: e.bytes, isInit: e.isInit }; });
+}
+function syncViewer(force) {
+  if (viewSrc >= 0 && !S.sources[viewSrc]) viewSrc = -1;
+  if (viewSrc === -1 && !S.base) viewSrc = S.sources.findIndex((s) => !s.self);
+  const key = `${S.base && S.base.label}|${S.sources.length}|${S.ops.length}|${viewSrc}`;
+  if (!force && key === lastKey) return;
+  lastKey = key;
+  if (viewSrc === -1) Viewer.setSource(S.base
+    ? { label: S.base.label, patches: mineRecords("patch"), patterns: mineRecords("pattern") }
+    : { label: "No file", patches: [], patterns: [] });
+  else { const s = S.sources[viewSrc]; Viewer.setSource({ label: s.label, patches: s.data.patch, patterns: s.data.pattern }); }
+}
+
+function showTab(name) {
+  if (!PANES[name]) name = "manager";
+  tab = name;
+  for (const b of document.querySelectorAll(".top button")) b.classList.toggle("on", b.dataset.tab === name);
+  for (const [n, id] of Object.entries(PANES)) byId(id).hidden = n !== name;
+  byId("midi").hidden = name !== "patches";
+  byId("presetNote").hidden = name !== "presets";
+  if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+  if (name !== "manager") syncViewer(true);
+}
+for (const b of document.querySelectorAll(".top button")) b.onclick = () => { if (S.base) viewSrc = -1; showTab(b.dataset.tab); };
+Viewer.hooks.showTab = showTab;
+
+/* The Patch Manager's Detail panel: View jumps to that slot in the matching viewer. A slot of a source
+ * file (not your memory) is shown from that source. */
+window.openInViewer = (kind, loc, side) => {
+  viewSrc = side === "mine" || S.sources[S.srcIdx].self ? -1 : S.srcIdx;
+  showTab(kind === "patch" ? "patches" : "presets");
+  Viewer.open(kind === "patch" ? "patch" : "preset", loc);
+};
+/* Testing: ?open=patch:A11 or ?open=preset:PA4A jumps there once ?base= has loaded. */
+let wantOpen = new URLSearchParams(location.search).get("open");
+window.onRender = () => {
+  if (wantOpen && S.base) { const [k, l] = wantOpen.split(":"); wantOpen = null; openInViewer(k, l, "mine"); return; }
+  if (tab !== "manager") syncViewer(false);
+};
+
+/* A backup becomes your memory; a patch set becomes a source (and is viewed only when there is no backup). */
+async function openTop(f) {
+  const bytes = await readFile(f);
+  if (SVD.isSet(bytes)) await addSource(bytes, f.name); else await loadBase(bytes, f.name);
+  viewSrc = -1;
+  if (tab !== "manager") syncViewer(true);
+}
+for (const i of document.querySelectorAll(".openin")) i.onchange = async (e) => { for (const f of e.target.files) await openTop(f); e.target.value = ""; };
+/* Drop a file anywhere on a viewer: an overlay shows while a file is dragged over, and the drop opens it. */
+const veil = byId("veil");
+const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+const take = (e) => { e.preventDefault(); veil.hidden = true; const f = e.dataTransfer.files[0]; if (f) openTop(f); };
+for (const z of document.querySelectorAll(".vscope")) {
+  z.addEventListener("dragover", (e) => { if (!hasFiles(e)) return; e.preventDefault(); if (tab !== "manager") veil.hidden = false; });
+  z.addEventListener("drop", take);
+}
+veil.addEventListener("dragover", (e) => e.preventDefault());
+veil.addEventListener("dragleave", () => { veil.hidden = true; });
+veil.addEventListener("drop", take);
+showTab(({ "#patches": "patches", "#presets": "presets", "#patterns": "presets" })[location.hash] || "manager");
 })();
 </script>
 </body>

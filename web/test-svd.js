@@ -7,8 +7,8 @@ const fs = require("fs");
 const assert = require("assert");
 const SVD = require("./svd.js");
 
-const path = process.argv[2] || `${__dirname}/../presets/jupiter-08 backup/BACKUP/JUPITER08Backup.svd`;
-if (!fs.existsSync(path)) { console.error("usage: node web/test-svd.js JUPITER08Backup.svd  (a backup of a unit still holding the factory patches)"); process.exit(2); }
+const path = process.argv[2];
+if (!path || !fs.existsSync(path)) { console.error("usage: node web/test-svd.js JUPITER08Backup.svd  (a backup of a unit still holding the factory patches)"); process.exit(2); }
 const raw = new Uint8Array(fs.readFileSync(path));
 const base = SVD.parse(raw, "base");
 let n = 0;
