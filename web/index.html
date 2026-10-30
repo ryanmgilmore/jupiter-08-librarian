@@ -137,6 +137,8 @@ header.shell h1 { font-size: 16px; margin: 0; letter-spacing: .02em; }
 .vscope .midi button:disabled { opacity: .5; cursor: default; }
 .vscope .midi .on { color: var(--ink); }
 .vscope .presetnote { margin-left: auto; max-width: 440px; font-size: 11px; line-height: 1.25; color: var(--muted); }
+.vscope .ghlink { margin-left: auto; font-size: 13px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; background: var(--bg); }
+.vscope .ghlink:hover { border-color: var(--muted); }
 .vscope .title .edited { font-size: 12px; color: var(--warn); }
 .vscope .vgrid { padding: 16px 20px 40px; display: grid; gap: 16px; grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; }
 .vscope .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
@@ -286,6 +288,7 @@ header.shell h1 { font-size: 16px; margin: 0; letter-spacing: .02em; }
     <button role="tab" data-tab="patches" title="Where every control sits for each patch. Follows the unit over MIDI and can send a patch to its edit buffer; nothing is sent unless you press Send.">Patch Viewer/Editor</button>
     <button role="tab" data-tab="presets" title="What each preset (the manual's pattern) plays: its two patches, each part's sequence and the settings it stores. Read only.">Preset Viewer</button>
   </nav>
+  <a class="ghlink" id="ghLink" href="https://github.com/ryanmgilmore/jupiter-08-librarian" target="_blank" rel="noopener noreferrer">GitHub</a>
   <div class="presetnote" id="presetNote" hidden>Presets include references to patch slots for its upper and lower parts, sequences for both parts, part settings not stored per patch, and reverb/delay settings.</div>
   <div class="midi" id="midi" hidden>
     <span id="midiStatus">MIDI</span>
@@ -887,6 +890,7 @@ function showTab(name) {
   for (const [n, id] of Object.entries(PANES)) byId(id).hidden = n !== name;
   byId("midi").hidden = name !== "patches";
   byId("presetNote").hidden = name !== "presets";
+  byId("ghLink").hidden = name !== "manager";
   if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
   if (name !== "manager") syncViewer(true);
 }
